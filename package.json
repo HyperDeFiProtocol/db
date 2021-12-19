@@ -1,0 +1,13 @@
+{
+  "name": "hyperdefi-db",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@hyper:HyperDeFiProtocol/db.git",
+  "author": "John Torres <apodpm@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^10.0.0",
+    "jsbi": "^4.1.0",
+    "web3": "^1.6.1"
+  }
+}
