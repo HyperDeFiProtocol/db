@@ -217,11 +217,6 @@ const main = async function() {
   await syncRange(funds)
   await syncRange(genesisDeposits)
 
-  // return null
-
-  // from block
-  // let fromBlock = JSBI.subtract(BN(EV_FROM_BLOCK), BN(1)).toString()
-
   console.log('blockNumber:', blockNumber)
   console.log('BUFFER:', BUFFER)
   console.log('HOLDERS:', HOLDERS)
@@ -262,17 +257,15 @@ const main = async function() {
                 buffers[key].amount = JSBI.add(BN(buffers[key].amount), BN(event.returnValues.value)).toString()
                 break
               }
-
-              buffers.push({
-                blockNumber: event.blockNumber,
-                txHash: event.transactionHash,
-                sender: event.returnValues.from,
-                recipient: event.returnValues.to,
-                amount: event.returnValues.value,
-              })
             }
-          } else if (event.returnValues.to === '0x000000000000000000000000000000000000dEaD') {
 
+            buffers.push({
+              blockNumber: event.blockNumber,
+              txHash: event.transactionHash,
+              sender: event.returnValues.from,
+              recipient: event.returnValues.to,
+              amount: event.returnValues.value,
+            })
           }
           break
         case 'TX':
