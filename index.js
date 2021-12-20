@@ -15,13 +15,24 @@ const STEP = 5000
 const INTERVAL = 200
 let BUFFER
 let HOLDERS
-let blockNumber
+let BLOCK_NUMBER
 let interval = 0
 let range = {
   from: process.env.fromBlock,
   to: process.env.fromBlock
 }
 let step = STEP
+
+let txs = []
+let transfers = []
+let buffers = []
+let airdrops = []
+let bonus = []
+let funds = []
+let genesisDeposits = []
+let holders = []
+let blocks = []
+let blockTimestamps = []
 
 const readFromJson = async function (path) {
   try {
@@ -112,6 +123,27 @@ const getMetadata = async function() {
   return metadata
 }
 
+
+// get block timestamp
+const getBlockTimestamp = async function(s) {
+  let exception = false
+  const block = await PROVIDER.eth.getBlock(s).catch(e => {
+    exception = true
+    console.error('[getBlockTimestamp]', e)
+  })
+
+  if (exception) {
+    await increaseInterval()
+    console.log(`wait: getBlockTimestamp after ${interval}ms`)
+    await wait(interval)
+    return await getBlockTimestamp(s)
+  }
+
+  interval = 0
+  return block['timestamp']
+}
+
+
 // get block number
 const getBlockNumber = async function() {
   let exception = false
@@ -134,13 +166,13 @@ const getBlockNumber = async function() {
 //
 const stepUp = async function() {
   range.to = JSBI.add(BN(range.from), BN(step)).toString()
-  if (JSBI.GT(BN(range.to), BN(blockNumber))) {
-    range.to = BN(blockNumber).toString()
+  if (JSBI.GT(BN(range.to), BN(BLOCK_NUMBER))) {
+    range.to = BN(BLOCK_NUMBER).toString()
   }
 }
 
 const fetchAllEvents = async function() {
-  console.log(`fetchAllEvents: #${range.from} - #${range.to}/#${blockNumber}`)
+  console.log(`fetchAllEvents: #${range.from} - #${range.to}/#${BLOCK_NUMBER}`)
 
   let exception = false
   const events = await TOKEN
@@ -169,7 +201,7 @@ const fetchAllEvents = async function() {
 
 
 const fetchIDOEvents = async function() {
-  console.log(`fetchIDOEvents: #${range.from} - #${range.to}/#${blockNumber}`)
+  console.log(`fetchIDOEvents: #${range.from} - #${range.to}/#${BLOCK_NUMBER}`)
 
   let exception = false
   const events = await IDO
@@ -194,20 +226,20 @@ const fetchIDOEvents = async function() {
 }
 
 
-const main = async function() {
-  blockNumber = await getBlockNumber()
+const syncEvents = async function() {
+  BLOCK_NUMBER = await getBlockNumber()
 
   const metadata = await getMetadata()
   BUFFER = metadata.accounts[4]
   HOLDERS = metadata.holders
 
-  let txs = await readFromJson('./mainnet/txs.json')
-  let transfers = await readFromJson('./mainnet/transfers.json')
-  let buffers = await readFromJson('./mainnet/buffers.json')
-  let airdrops = await readFromJson('./mainnet/airdrops.json')
-  let bonus = await readFromJson('./mainnet/bonus.json')
-  let funds = await readFromJson('./mainnet/funds.json')
-  let genesisDeposits = await readFromJson('./mainnet/genesisDeposits.json')
+  txs = await readFromJson('./mainnet/txs.json')
+  transfers = await readFromJson('./mainnet/transfers.json')
+  buffers = await readFromJson('./mainnet/buffers.json')
+  airdrops = await readFromJson('./mainnet/airdrops.json')
+  bonus = await readFromJson('./mainnet/bonus.json')
+  funds = await readFromJson('./mainnet/funds.json')
+  genesisDeposits = await readFromJson('./mainnet/genesisDeposits.json')
 
   await syncRange(txs)
   await syncRange(transfers)
@@ -217,15 +249,11 @@ const main = async function() {
   await syncRange(funds)
   await syncRange(genesisDeposits)
 
-  console.log('blockNumber:', blockNumber)
+  console.log('blockNumber:', BLOCK_NUMBER)
   console.log('BUFFER:', BUFFER)
   console.log('HOLDERS:', HOLDERS)
 
-  // return null
-
-  // collections
-
-  while (JSBI.LT(BN(range.from), BN(blockNumber))) {
+  while (JSBI.LT(BN(range.from), BN(BLOCK_NUMBER))) {
     range.from = JSBI.add(BN(range.from), BN(1)).toString()
     await stepUp(step)
 
@@ -327,16 +355,14 @@ const main = async function() {
   }
 
 
-  console.log(`txs: ${txs.length}`)
-  console.log(`transfers: ${transfers.length}`)
-  console.log(`airdrops: ${airdrops.length}`)
-  console.log(`bonus: ${bonus.length}`)
-  console.log(`funds: ${funds.length}`)
+  console.log(`           txs: ${txs.length}`)
+  console.log(`     transfers: ${transfers.length}`)
+  console.log(`       buffers: ${buffers.length}`)
+  console.log(`      airdrops: ${airdrops.length}`)
+  console.log(`         bonus: ${bonus.length}`)
+  console.log(`         funds: ${funds.length}`)
   console.log(`genesisDeposit: ${genesisDeposits.length}`)
 
-  console.log(HOLDERS)
-
-  // console.log(`txs: ${txs.length}`)
   await writeToJson('./mainnet/txs.json', txs)
   await writeToJson('./mainnet/transfers.json', transfers)
   await writeToJson('./mainnet/buffers.json', buffers)
@@ -344,30 +370,89 @@ const main = async function() {
   await writeToJson('./mainnet/bonus.json', bonus)
   await writeToJson('./mainnet/funds.json', funds)
   await writeToJson('./mainnet/genesisDeposits.json', genesisDeposits)
-
-
-  // let holders = []
-  // while (JSBI.LT(BN(holders.length), JSBI.subtract(BN(metadata.holders), BN(1)))) {
-  //   console.log(`Holders: #${holders.length}`)
-  //   const holdersResp = await TOKEN.methods.getHolders(holders.length).call()
-  //     .catch(e => {
-  //       console.error('>>> sync, syncHolders:', e)
-  //     })
-  //
-  //   for (let i = 0; i < holdersResp.ids.length; i++) {
-  //     if (holdersResp.holders[i] !== '0x0000000000000000000000000000000000000000') {
-  //       holders.push({
-  //         id: holdersResp.ids[i],
-  //         address: holdersResp.holders[i],
-  //         username: holdersResp.usernames[i],
-  //         balance: holdersResp.balances[i],
-  //         isWhale: holdersResp.isWhales[i],
-  //       })
-  //     }
-  //   }
-  // }
-  //
-  // console.log(holders.length)
 }
 
-main().then()
+const pushBlocksFromJson = async function (path) {
+  const txs = await readFromJson(path)
+
+  for (const tx of txs) {
+    if (blocks.length === 0 || blocks.indexOf(tx['blockNumber']) === -1) {
+      blocks.push(tx['blockNumber'])
+    }
+  }
+}
+
+const isInBlockTimestamps = async function (blockNumber) {
+  for (const row of blockTimestamps) {
+    if (row.blockNumber === blockNumber) return true
+  }
+
+  return false
+}
+
+const syncBlockTimestamps = async function () {
+  blocks = []
+  BLOCK_NUMBER = await getBlockNumber()
+
+  blockTimestamps = await readFromJson('./mainnet/blockTimestamps.json')
+  await pushBlocksFromJson('./mainnet/txs.json')
+  await pushBlocksFromJson('./mainnet/transfers.json')
+  await pushBlocksFromJson('./mainnet/buffers.json')
+  await pushBlocksFromJson('./mainnet/airdrops.json')
+  await pushBlocksFromJson('./mainnet/bonus.json')
+  await pushBlocksFromJson('./mainnet/funds.json')
+  await pushBlocksFromJson('./mainnet/genesisDeposits.json')
+
+  blocks.sort()
+
+  for (const blockNumber of blocks) {
+    if (!await isInBlockTimestamps(blockNumber)) {
+      const row = {
+        blockNumber: blockNumber,
+        timestamp: await getBlockTimestamp(blockNumber)
+      }
+      console.log(`#${row.blockNumber} => ${row.timestamp} / #${BLOCK_NUMBER}`)
+      blockTimestamps.push(row)
+    }
+  }
+
+  await writeToJson('./mainnet/blockTimestamps.json', blockTimestamps)
+}
+
+
+// const syncHolders = async function () {
+//   holders = []
+//   BLOCK_NUMBER = await getBlockNumber()
+//
+//   const metadata = await getMetadata()
+//   BUFFER = metadata.accounts[4]
+//   HOLDERS = metadata.holders
+//
+//   console.log(HOLDERS)
+//
+//   while (JSBI.LT(BN(holders.length), JSBI.subtract(BN(HOLDERS), BN(1)))) {
+//     console.log(`Holders: #${holders.length}`)
+//     const holdersResp = await TOKEN.methods.getHolders(holders.length).call()
+//       .catch(e => {
+//         console.error('>>> sync, syncHolders:', e)
+//       })
+//
+//     for (let i = 0; i < holdersResp.ids.length; i++) {
+//       if (holdersResp.holders[i] !== '0x0000000000000000000000000000000000000000') {
+//         holders.push({
+//           id: holdersResp.ids[i],
+//           address: holdersResp.holders[i],
+//           username: holdersResp.usernames[i],
+//           balance: holdersResp.balances[i],
+//           isWhale: holdersResp.isWhales[i],
+//         })
+//       }
+//     }
+//   }
+//
+//   console.log(holders.length)
+// }
+
+syncEvents().then()
+syncBlockTimestamps().then()
+// syncHolders().then()
