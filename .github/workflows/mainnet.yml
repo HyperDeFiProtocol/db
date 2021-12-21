@@ -54,6 +54,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.CI_TOKEN }}
         run: |
           git config --global user.name 'Camel'
-          git config --global user.email 'arbcamel@protonmail.com'
+          git config --global user.email 'arcamel@protonmail.com'
           git commit -am "Incremental Updates"
           git push
